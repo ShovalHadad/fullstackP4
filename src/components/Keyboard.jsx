@@ -3,12 +3,12 @@ import { useState } from 'react';
 const languageLayouts = {
   Hebrew: 'קראטוןםפשדגכעיחלךףזסבהנמצתץ'.split(''),
   English: 'qwertyuiopasdfghjklzxcvbnm'.split(''),
-  Emoji: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉']
+  Emoji: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉','🙂', '😍']
 };
 
 const numbersLayout = '1234567890'.split('');
 
-const symbolsLayout = ['.', ',', '?', '!', ':', '-', '_', '/', '"', "'", '(', ')', '[', ']', '{', '}', '@', '#', '$', '%', '&', '*', '+', '='];
+const symbolsLayout = ['.', ',', '?', '!', ':', '-', '/','_', '(', ')', '[', ']', '{', '}', '@', '#', '%', '*', '+', '='];
 
 function Keyboard({ onKeyClick }) {
   const [language, setLanguage] = useState('Hebrew');

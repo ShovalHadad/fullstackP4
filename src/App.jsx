@@ -58,11 +58,11 @@ function App() {
   };
 
   const moveCursorLeft = () => {
-    setCursorIndex(prev => Math.min(textItems.length, prev + 1));
+    setCursorIndex(prev => Math.min(textItems.length, prev - 1));
   };
 
   const moveCursorRight = () => {
-    setCursorIndex(prev => Math.max(0, prev - 1));
+    setCursorIndex(prev => Math.max(0, prev + 1));
   };
 
   const deleteChar = () => {
