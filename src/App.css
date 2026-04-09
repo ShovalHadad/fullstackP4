@@ -17,6 +17,7 @@ body {
   color: var(--text-main);
   display: flex;
   justify-content: center;
+  width: 100%;
   direction: rtl; /* חשוב מאוד ליישור האפליקציה כולה */
 }
 
@@ -24,10 +25,10 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1500px;
   height: 95vh;
   margin-top: 2.5vh;
-  gap: 20px;
+  gap: 10px;
 }
 
 /* אזור התצוגה */
@@ -178,3 +179,78 @@ button:hover {
 }
 
 .active-input { border-color: var(--primary) !important; background: #f0f7ff; }
+
+.files-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.bottom-editor {
+  display: grid;
+  grid-template-columns: 220px 1fr 220px;
+  gap: 18px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.side-panel {
+  background: #f7f7f7;
+  border-radius: 16px;
+  padding: 14px;
+  min-height: 100%;
+}
+
+.left-panel,
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.keyboard-center {
+  min-width: 0;
+}
+
+.diagonal-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.diagonal-group label {
+  font-weight: 600;
+}
+
+.diagonal-group input[type="color"],
+.diagonal-group select,
+.diagonal-group button {
+  width: 100%;
+}
+
+.left-panel input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.files-bar button,
+.files-bar select,
+.side-panel button,
+.side-panel select,
+.side-panel input {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #d8d8d8;
+  background: white;
+  font-size: 15px;
+}

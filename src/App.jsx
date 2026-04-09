@@ -1,225 +1,364 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Keyboard from './components/Keyboard';
 import './App.css';
 
 function App() {
   const [textItems, setTextItems] = useState([]);
+  const [cursorIndex, setCursorIndex] = useState(0);
   const [history, setHistory] = useState([]);
+
   const [currentStyle, setCurrentStyle] = useState({
     color: '#000000',
     fontSize: '24px'
   });
 
-  // --- חלק ב: ניהול קבצים ב-LocalStorage ---
-  const [fileName, setFileName] = useState(""); 
+  const [fileName, setFileName] = useState('');
   const [savedFiles, setSavedFiles] = useState([]);
 
-  // טעינת רשימת הקבצים הקיימים בזיכרון בזמן טעינת האפליקציה
+  const [focusField, setFocusField] = useState('main');
+  const [searchChar, setSearchChar] = useState('');
+  const [replaceChar, setReplaceChar] = useState('');
+
   useEffect(() => {
-    refreshFileList();
-  }, []);
-
-  const refreshFileList = () => {
     setSavedFiles(Object.keys(localStorage));
+  }, [fileName]);
+
+  const saveHistory = () => {
+    setHistory(prev => [...prev, { textItems, cursorIndex }]);
   };
 
-  // שמירה / שמירה בשם
-  const handleSave = (isSaveAs = false) => {
-    let name = fileName;
-    if (isSaveAs || !fileName) {
-      name = prompt("הכנס שם לקובץ לשמירה ב-LocalStorage:", fileName || "מסמך_חדש");
-    }
-
-    if (name) {
-      localStorage.setItem(name, JSON.stringify(textItems));
-      setFileName(name);
-      refreshFileList();
-      alert(`הקובץ "${name}" נשמר בהצלחה!`);
-    }
+  const insertAtCursor = (item) => {
+    const updated = [...textItems];
+    updated.splice(cursorIndex, 0, item);
+    setTextItems(updated);
+    setCursorIndex(cursorIndex + 1);
   };
 
-  // פתיחת קובץ קיים
-  const handleOpen = (name) => {
-    if (!name) return;
-    const savedData = localStorage.getItem(name);
-    if (savedData) {
-      saveToHistory();
-      setTextItems(JSON.parse(savedData));
-      setFileName(name);
-    }
+  const removeAtCursor = () => {
+    if (cursorIndex === 0) return;
+    const updated = [...textItems];
+    updated.splice(cursorIndex - 1, 1);
+    setTextItems(updated);
+    setCursorIndex(cursorIndex - 1);
   };
 
-  // מחיקת קובץ מה-LocalStorage
-  const deleteFile = () => {
-    if (!fileName) {
-      alert("אין קובץ פעיל למחיקה");
+  const handleKeyClick = (char) => {
+    if (focusField === 'search') {
+      setSearchChar(char);
       return;
     }
-    if (confirm(`האם אתה בטוח שברצונך למחוק את הקובץ "${fileName}" לצמיתות?`)) {
-      localStorage.removeItem(fileName);
-      setFileName("");
-      setTextItems([]);
-      refreshFileList();
-      alert("הקובץ נמחק בהצלחה");
+
+    if (focusField === 'replace') {
+      setReplaceChar(char);
+      return;
     }
-  };
-  // ---------------------------------------
 
-  const [focusField, setFocusField] = useState('main'); 
-  const [searchVal, setSearchVal] = useState("");
-  const [replaceVal, setReplaceVal] = useState("");
-
-  const saveToHistory = () => {
-    setHistory([...history, [...textItems]]);
+    saveHistory();
+    insertAtCursor({ char, ...currentStyle });
   };
 
-  const addChar = (char) => {
-    if (focusField === 'main') {
-      saveToHistory();
-      const newItem = { char, ...currentStyle };
-      setTextItems([...textItems, newItem]);
-    } else if (focusField === 'search') {
-      setSearchVal(prev => prev + char);
-    } else if (focusField === 'replace') {
-      setReplaceVal(prev => prev + char);
-    }
+  const moveCursorLeft = () => {
+    setCursorIndex(prev => Math.min(textItems.length, prev + 1));
   };
 
-  const deleteLast = () => {
-    if (focusField === 'main') {
-      if (textItems.length === 0) return;
-      saveToHistory();
-      setTextItems(textItems.slice(0, -1));
-    } else if (focusField === 'search') {
-      setSearchVal(searchVal.slice(0, -1));
-    } else if (focusField === 'replace') {
-      setReplaceVal(replaceVal.slice(0, -1));
+  const moveCursorRight = () => {
+    setCursorIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const deleteChar = () => {
+    if (focusField === 'search') {
+      setSearchChar('');
+      return;
     }
+
+    if (focusField === 'replace') {
+      setReplaceChar('');
+      return;
+    }
+
+    if (cursorIndex === 0) return;
+    saveHistory();
+    removeAtCursor();
+  };
+
+  const deleteWord = () => {
+    if (cursorIndex === 0) return;
+
+    saveHistory();
+
+    const updated = [...textItems];
+    let end = cursorIndex;
+
+    while (end > 0 && updated[end - 1]?.char === ' ') end--;
+    let start = end;
+    while (start > 0 && updated[start - 1]?.char !== ' ') start--;
+
+    updated.splice(start, cursorIndex - start);
+    setTextItems(updated);
+    setCursorIndex(start);
   };
 
   const clearAll = () => {
-    if(confirm("האם אתה בטוח שברצונך לנקות הכל?")) {
-      saveToHistory();
-      setTextItems([]);
-      setFileName("");
-    }
+    saveHistory();
+    setTextItems([]);
+    setCursorIndex(0);
   };
 
-  const handleUndo = () => {
-    if (history.length > 0) {
-      const previousState = history[history.length - 1];
-      setTextItems(previousState);
-      setHistory(history.slice(0, -1));
-    }
+  const undo = () => {
+    if (!history.length) return;
+    const last = history[history.length - 1];
+    setTextItems(last.textItems);
+    setCursorIndex(last.cursorIndex);
+    setHistory(prev => prev.slice(0, -1));
   };
 
   const applyStyleToAll = () => {
-    if (textItems.length === 0) return;
-    saveToHistory();
-    const updated = textItems.map(item => ({
-      ...item,
-      color: currentStyle.color,
-      fontSize: currentStyle.fontSize
-    }));
-    setTextItems(updated);
+    saveHistory();
+    setTextItems(items =>
+      items.map(item => ({
+        ...item,
+        color: currentStyle.color,
+        fontSize: currentStyle.fontSize
+      }))
+    );
   };
 
-  const searchAndReplace = () => {
-    if (!searchVal) return;
-    saveToHistory();
-    const updated = textItems.map(item => 
-      item.char === searchVal ? { ...item, char: replaceVal } : item
+  const applyStyleFromCursor = () => {
+    saveHistory();
+    setTextItems(items =>
+      items.map((item, index) =>
+        index >= cursorIndex
+          ? {
+              ...item,
+              color: currentStyle.color,
+              fontSize: currentStyle.fontSize
+            }
+          : item
+      )
     );
+  };
+
+  const findChar = () => {
+    if (!searchChar) return;
+
+    const chars = textItems.map(item => item.char);
+    const index = chars.indexOf(searchChar, cursorIndex);
+
+    if (index !== -1) {
+      setCursorIndex(index);
+      setFocusField('main');
+      return;
+    }
+
+    const firstIndex = chars.indexOf(searchChar);
+    if (firstIndex !== -1) {
+      setCursorIndex(firstIndex);
+      setFocusField('main');
+    } else {
+      alert('התו לא נמצא');
+    }
+  };
+
+  const replaceCharOnce = () => {
+    if (!searchChar || !replaceChar) return;
+
+    const chars = textItems.map(item => item.char);
+    const index = chars.indexOf(searchChar, cursorIndex);
+
+    if (index === -1) {
+      alert('התו לא נמצא');
+      return;
+    }
+
+    saveHistory();
+
+    const updated = [...textItems];
+    updated[index] = {
+      char: replaceChar,
+      ...currentStyle
+    };
+
     setTextItems(updated);
-    setSearchVal("");
-    setReplaceVal("");
+    setCursorIndex(index + 1);
     setFocusField('main');
+  };
+
+  const replaceAllChars = () => {
+    if (!searchChar || !replaceChar) return;
+
+    saveHistory();
+
+    setTextItems(items =>
+      items.map(item =>
+        item.char === searchChar
+          ? { char: replaceChar, ...currentStyle }
+          : item
+      )
+    );
+
+    setFocusField('main');
+  };
+
+  const saveFile = (saveAs = false) => {
+    let name = fileName;
+
+    if (!name || saveAs) {
+      name = prompt('הכנס שם קובץ', fileName || 'מסמך חדש');
+    }
+
+    if (!name) return;
+
+    localStorage.setItem(name, JSON.stringify(textItems));
+    setFileName(name);
+    setSavedFiles(Object.keys(localStorage));
+  };
+
+  const openFile = (name) => {
+    const data = localStorage.getItem(name);
+    if (!data) return;
+
+    const parsed = JSON.parse(data);
+    setTextItems(parsed);
+    setCursorIndex(parsed.length);
+    setFileName(name);
+    setFocusField('main');
+  };
+
+  const deleteFile = () => {
+    if (!fileName) return;
+    localStorage.removeItem(fileName);
+    setFileName('');
+    setSavedFiles(Object.keys(localStorage));
+  };
+
+  const renderText = () => {
+    const output = [];
+
+    for (let i = 0; i <= textItems.length; i++) {
+      if (i === cursorIndex) {
+        output.push(<span key={`cursor-${i}`} className="cursor" />);
+      }
+
+      if (i < textItems.length) {
+        const item = textItems[i];
+        output.push(
+          <span
+            key={i}
+            style={{ color: item.color, fontSize: item.fontSize }}
+          >
+            {item.char}
+          </span>
+        );
+      }
+    }
+
+    return output;
   };
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <h1>Visual Text Editor</h1>
-        <div className="file-info">
-          📄 {fileName ? `קובץ פעיל: ${fileName}` : "קובץ חדש"}
-        </div>
-      </header>
+      <h1>Visual Text Editor</h1>
+      <div className="file-info">📄 {fileName ? `קובץ פעיל: ${fileName}` : 'קובץ חדש'}</div>
 
-      <section className="display-area" onClick={() => setFocusField('main')}>
-        {textItems.length === 0 && focusField === 'main' && (
-          <span className="placeholder">השתמש במקלדת למטה כדי להתחיל...</span>
-        )}
-        {textItems.map((item, index) => (
-          <span key={index} style={{ color: item.color, fontSize: item.fontSize }}>
-            {item.char}
-          </span>
-        ))}
-        {focusField === 'main' && <span className="cursor" />}
+      {/* אזור קבצים - מתחת לכותרת ולפני הטקסט */}
+      <section className="files-bar">
+        <select defaultValue="" onChange={(e) => openFile(e.target.value)}>
+          <option value="" disabled>פתח קובץ שמור...</option>
+          {savedFiles.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+
+        <button onClick={() => saveFile(false)} className="active-btn">Save</button>
+        <button onClick={() => saveFile(true)}>Save As</button>
+        <button onClick={deleteFile}>Delete File</button>
+        <button onClick={() => {
+          setFileName('');
+          setTextItems([]);
+          setCursorIndex(0);
+          setHistory([]);
+          setSearchChar('');
+          setReplaceChar('');
+          setFocusField('main');
+        }}>
+          New
+        </button>
       </section>
 
-      <section className="editor-area">
-        
-        {/* ניהול קבצים (חלק ב מעודכן) */}
-        <div className="file-bar">
-          <div className="style-group">
-            <select onChange={(e) => handleOpen(e.target.value)} value="">
-              <option value="" disabled>פתח קובץ שמור...</option>
-              {savedFiles.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            <button onClick={() => handleSave(false)} className="active-btn">Save</button>
-            <button onClick={() => handleSave(true)}>Save As</button>
-            <button onClick={deleteFile} style={{color: '#e74c3c'}}>Delete File</button>
-            <button onClick={() => { setFileName(""); setTextItems([]); }}>New</button>
-          </div>
+      {/* אזור הטקסט */}
+      <section className="display-area" onClick={() => setFocusField('main')}>
+        {renderText()}
+      </section>
+
+      {/* אזור תחתון */}
+      <section className="bottom-editor">
+        {/* צד שמאל - מחיקה/undo/חיפוש/החלפה */}
+      <div className="side-panel left-panel">
+        <div className="panel-grid">
+          <button onClick={undo}>Undo</button>
+          <button onClick={deleteChar}>מחק תו</button>
+          <button onClick={deleteWord}>מחק מילה</button>
+          <button onClick={clearAll}>נקה הכל</button>
+        </div>
+        <div className="panel-grid search-grid">
+          <input
+            readOnly
+            placeholder="חפש תו"
+            value={searchChar}
+            onClick={() => setFocusField('search')}
+            className={focusField === 'search' ? 'active-input' : ''}
+          />
+
+          <input
+            readOnly
+            placeholder="החלף תו"
+            value={replaceChar}
+            onClick={() => setFocusField('replace')}
+            className={focusField === 'replace' ? 'active-input' : ''}
+          />
+
+          <button onClick={findChar}>מצא</button>
+          <button onClick={replaceCharOnce}>החלף</button>
+          <button onClick={replaceAllChars} className="full-width-btn">
+            החלף הכל
+          </button>
+        </div>
+      </div>
+        {/* אמצע - מקלדת */}
+        <div className="keyboard-center">
+          <Keyboard onKeyClick={handleKeyClick} />
         </div>
 
-        <div className="toolbar">
-          <div className="style-group">
+        {/* צד ימין - עיצוב + חיצים */}
+        <div className="side-panel right-panel">
+          <div className="panel-group diagonal-group">
             <label>צבע:</label>
-            <input type="color" value={currentStyle.color} 
-                   onChange={(e) => setCurrentStyle({...currentStyle, color: e.target.value})} />
-            
+            <input 
+              type="color"
+              value={currentStyle.color}
+              onChange={(e) =>
+                setCurrentStyle({ ...currentStyle, color: e.target.value })
+              }
+            />
+
             <label>גודל:</label>
-            <select value={currentStyle.fontSize} onChange={(e) => setCurrentStyle({...currentStyle, fontSize: e.target.value})}>
+            <select
+              value={currentStyle.fontSize}
+              onChange={(e) =>
+                setCurrentStyle({ ...currentStyle, fontSize: e.target.value })
+              }
+            >
               <option value="16px">קטן</option>
               <option value="24px">בינוני</option>
               <option value="40px">גדול</option>
             </select>
-          </div>
 
-          <div className="action-group">
+            <button onClick={applyStyleFromCursor}>עצב מכאן</button>
             <button onClick={applyStyleToAll}>עצב הכל</button>
-            <button onClick={handleUndo} disabled={history.length === 0}>Undo</button>
-            <button onClick={deleteLast}>מחק תו</button>
-            <button onClick={clearAll} style={{color: 'red'}}>נקה הכל</button>
+            <button onClick={moveCursorLeft}>→</button>
+            <button onClick={moveCursorRight}>←</button>
           </div>
         </div>
-
-        <div className="advanced-actions">
-          <input 
-            placeholder="חפש תו" 
-            value={searchVal}
-            onFocus={() => setFocusField('search')}
-            readOnly 
-            className={focusField === 'search' ? 'active-input' : ''}
-          />
-          <span style={{padding: '0 5px'}}>➜</span>
-          <input 
-            placeholder="החלף" 
-            value={replaceVal}
-            onFocus={() => setFocusField('replace')}
-            readOnly
-            className={focusField === 'replace' ? 'active-input' : ''}
-          />
-          <button onClick={searchAndReplace}>החלף הכל</button>
-          <button onClick={() => setFocusField('main')} className={focusField === 'main' ? 'active-btn' : ''}>
-            מקלדת ראשית
-          </button>
-        </div>
-
-        <Keyboard onKeyClick={addChar} />
       </section>
     </div>
   );
