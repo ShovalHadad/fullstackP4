@@ -18,7 +18,8 @@ function App() {
 
   const [currentStyle, setCurrentStyle] = useState({
     color: '#000000',
-    fontSize: '24px'
+    fontSize: '24px',
+    fontFamily: 'Arial'
   });
 
   const [savedFiles, setSavedFiles] = useState([]);
@@ -26,11 +27,27 @@ function App() {
   const [searchChar, setSearchChar] = useState('');
   const [replaceChar, setReplaceChar] = useState('');
 
+  const [activeUser, setActiveUser] = useState(localStorage.getItem('activeUser') || '');
+  const [username, setUsername] = useState(localStorage.getItem('displayUser') || '');
+  const [password, setPassword] = useState('');
+
   const activeDoc = documents.find(doc => doc.id === activeDocId);
 
+  const getUserId = (name, pass) => `${name}_${pass}`;
+
+  const getFileKey = (name) => `file_${activeUser}_${name}`;
+
+  const getUserFiles = () => {
+    if (!activeUser) return [];
+
+    return Object.keys(localStorage)
+      .filter(key => key.startsWith(`file_${activeUser}_`))
+      .map(key => key.replace(`file_${activeUser}_`, ''));
+  };
+
   useEffect(() => {
-    setSavedFiles(Object.keys(localStorage));
-  }, []);
+    setSavedFiles(getUserFiles());
+  }, [activeUser]);
 
   const updateActiveDoc = (callback) => {
     setDocuments(prev =>
@@ -162,7 +179,8 @@ function App() {
       textItems: doc.textItems.map(item => ({
         ...item,
         color: currentStyle.color,
-        fontSize: currentStyle.fontSize
+        fontSize: currentStyle.fontSize,
+        fontFamily: currentStyle.fontFamily
       })),
       history: [...doc.history, saveHistory(doc)]
     }));
@@ -173,7 +191,7 @@ function App() {
       ...doc,
       textItems: doc.textItems.map((item, index) =>
         index >= doc.cursorIndex
-          ? { ...item, color: currentStyle.color, fontSize: currentStyle.fontSize }
+          ? { ...item, color: currentStyle.color, fontSize: currentStyle.fontSize, fontFamily: currentStyle.fontFamily }
           : item
       ),
       history: [...doc.history, saveHistory(doc)]
@@ -262,7 +280,7 @@ function App() {
 
     if (!name) return;
 
-    localStorage.setItem(name, JSON.stringify(activeDoc.textItems));
+    localStorage.setItem(getFileKey(name), JSON.stringify(activeDoc.textItems))
 
     setDocuments(prev =>
       prev.map(doc =>
@@ -270,7 +288,7 @@ function App() {
       )
     );
 
-    setSavedFiles(Object.keys(localStorage));
+    setSavedFiles(getUserFiles());
     alert(`הקובץ "${name}" נשמר בהצלחה`);
   };
 
@@ -283,7 +301,7 @@ function App() {
     return;
   }
 
-  const data = localStorage.getItem(name);
+  const data = localStorage.getItem(getFileKey(name));
     if (!data) return;
 
     const parsed = JSON.parse(data);
@@ -297,15 +315,26 @@ function App() {
   const deleteFile = () => {
     if (!activeDoc?.name) return;
 
-    localStorage.removeItem(activeDoc.name);
+    const confirmDelete = confirm(`האם את בטוחה שברצונך למחוק את הקובץ "${activeDoc.name}"?`);
+    if (!confirmDelete) return;
 
-    setDocuments(prev =>
-      prev.map(doc =>
-        doc.id === activeDocId ? { ...doc, name: '' } : doc
-      )
-    );
+    localStorage.removeItem(getFileKey(activeDoc.name));
 
-    setSavedFiles(Object.keys(localStorage));
+    const remainingDocs = documents.filter(doc => doc.id !== activeDocId);
+
+    if (remainingDocs.length === 0) {
+      const newDoc = createDoc();
+      setDocuments([newDoc]);
+      setActiveDocId(newDoc.id);
+    } else {
+      setDocuments(remainingDocs);
+      setActiveDocId(remainingDocs[0].id);
+    }
+
+    setSavedFiles(getUserFiles());
+    setSearchChar('');
+    setReplaceChar('');
+    setFocusField('main');
   };
 
   const closeDocument = (docId) => {
@@ -317,8 +346,8 @@ function App() {
     if (shouldSave) {
       const name = docToClose.name || prompt('הכנס שם קובץ', 'מסמך חדש');
       if (name) {
-        localStorage.setItem(name, JSON.stringify(docToClose.textItems));
-        setSavedFiles(Object.keys(localStorage));
+        localStorage.setItem(getFileKey(name), JSON.stringify(docToClose.textItems));
+        setSavedFiles(getUserFiles());
       }
     }
 
@@ -351,8 +380,7 @@ function App() {
         output.push(
           <span
             key={`${doc.id}-${i}`}
-            style={{ color: item.color, fontSize: item.fontSize }}
-          >
+            style={{color: item.color, fontSize: item.fontSize, fontFamily: item.fontFamily}}          >
             {item.char}
           </span>
         );
@@ -361,15 +389,104 @@ function App() {
 
     return output;
   };
+  
+  const logout = () => {
+    const shouldSave = confirm('האם לשמור את כל השינויים לפני התנתקות?');
+
+    if (shouldSave) {
+      documents.forEach((doc, index) => {
+        if (doc.textItems.length === 0) return;
+
+        const name = doc.name || `מסמך_${index + 1}`;
+
+        localStorage.setItem(
+          getFileKey(name),
+          JSON.stringify(doc.textItems)
+        );
+      });
+
+      setSavedFiles(getUserFiles());
+      alert('כל הקבצים הלא ריקים נשמרו בהצלחה');
+    }
+
+    const newDoc = createDoc();
+
+    localStorage.removeItem('activeUser');
+    localStorage.removeItem('displayUser');
+
+    setActiveUser('');
+    setUsername('');
+    setPassword('');
+    setDocuments([newDoc]);
+    setActiveDocId(newDoc.id);
+    setSavedFiles([]);
+    setSearchChar('');
+    setReplaceChar('');
+    setFocusField('main');
+  };
+
+  if (!activeUser) {
+    return (
+      <div className="app-container">
+        <h1>Visual Text Editor</h1>
+
+        <section className="login-box">
+          <h2>כניסת משתמש</h2>
+
+          <input
+            type="text"
+            placeholder="שם משתמש"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="סיסמה"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button
+            onClick={() => {
+              const name = username.trim();
+              const pass = password.trim();
+
+              if (!name || !pass) {
+                alert('יש להזין שם משתמש וסיסמה');
+                return;
+              }
+
+              const userId = getUserId(name, pass);
+
+              localStorage.setItem('activeUser', userId);
+              localStorage.setItem('displayUser', name);
+              setActiveUser(userId);
+              setUsername(name);
+              setPassword('');
+            }}
+          >
+            כניסה / יצירת משתמש
+          </button>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
       <h1>Visual Text Editor</h1>
+     <div className="user-info">
+        משתמש פעיל: {username}
 
+        <button onClick={logout} >
+          התנתקות
+        </button>
+      </div>
       <div className="file-info">
         {activeDoc?.name ? `קובץ פעיל: ${activeDoc.name}` : 'קובץ חדש'}
       </div>
-
+ 
       <section className="files-bar">
         <button onClick={createNewDocument}>New</button>
 
@@ -467,7 +584,17 @@ function App() {
                 setCurrentStyle({ ...currentStyle, color: e.target.value })
               }
             />
-
+            <label>גופן:</label>
+            <select
+              value={currentStyle.fontFamily}
+              onChange={(e) =>
+                setCurrentStyle({ ...currentStyle, fontFamily: e.target.value })
+              }
+            >
+              <option value="Arial">Arial</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+            </select>
             <label>גודל:</label>
             <select
               value={currentStyle.fontSize}
