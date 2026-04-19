@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Keyboard from './components/Keyboard';
 import './App.css';
-
+// Helper function to create a new document object
 function createDoc(name = '', textItems = []) {
   return {
     id: Date.now() + Math.random(),
@@ -11,32 +11,35 @@ function createDoc(name = '', textItems = []) {
     history: []
   };
 }
-
+// Main App component
 function App() {
-  const [documents, setDocuments] = useState([createDoc()]);
-  const [activeDocId, setActiveDocId] = useState(documents[0].id);
+  const [documents, setDocuments] = useState([createDoc()]);  // Start with one empty document
+  const [activeDocId, setActiveDocId] = useState(documents[0].id);  // State for text styling
 
+  // State for user management and file handling
   const [currentStyle, setCurrentStyle] = useState({
     color: '#000000',
     fontSize: '24px',
     fontFamily: 'Arial'
   });
 
-  const [savedFiles, setSavedFiles] = useState([]);
-  const [focusField, setFocusField] = useState('main');
-  const [searchChar, setSearchChar] = useState('');
-  const [replaceChar, setReplaceChar] = useState('');
+  const [savedFiles, setSavedFiles] = useState([]);  // List of saved files for the active user
+  const [focusField, setFocusField] = useState('main');  // 'main', 'search', or 'replace'
+  const [searchChar, setSearchChar] = useState('');  // Character to search for
+  const [replaceChar, setReplaceChar] = useState('');  // Character to replace with
 
-  const [activeUser, setActiveUser] = useState(localStorage.getItem('activeUser') || '');
-  const [username, setUsername] = useState(localStorage.getItem('displayUser') || '');
-  const [password, setPassword] = useState('');
+  // State for user authentication
+  const [activeUser, setActiveUser] = useState(localStorage.getItem('activeUser') || '');  // User ID in format "username_password"  
+  const [username, setUsername] = useState(localStorage.getItem('displayUser') || '');  // Display name for the user
+  const [password, setPassword] = useState('');  // Password input state
 
-  const activeDoc = documents.find(doc => doc.id === activeDocId);
+  const activeDoc = documents.find(doc => doc.id === activeDocId);  // Get the currently active document
 
-  const getUserId = (name, pass) => `${name}_${pass}`;
+  const getUserId = (name, pass) => `${name}_${pass}`;  // Helper function to generate a user ID based on username and password
 
-  const getFileKey = (name) => `file_${activeUser}_${name}`;
+  const getFileKey = (name) => `file_${activeUser}_${name}`;  // Helper function to generate a localStorage key for a given file name and active user
 
+  // Function to retrieve the list of files saved by the active user
   const getUserFiles = () => {
     if (!activeUser) return [];
 
@@ -45,10 +48,7 @@ function App() {
       .map(key => key.replace(`file_${activeUser}_`, ''));
   };
 
-  useEffect(() => {
-    setSavedFiles(getUserFiles());
-  }, [activeUser]);
-
+  // Function to update the active document with a given callback that modifies the document
   const updateActiveDoc = (callback) => {
     setDocuments(prev =>
       prev.map(doc =>
@@ -57,11 +57,13 @@ function App() {
     );
   };
 
+  // Function to save the current state of the document for undo functionality
   const saveHistory = (doc) => ({
     textItems: doc.textItems,
     cursorIndex: doc.cursorIndex
   });
 
+  // Handler for when a key is clicked on the virtual keyboard
   const handleKeyClick = (char) => {
     if (focusField === 'search') {
       setSearchChar(char);
@@ -75,7 +77,7 @@ function App() {
 
     updateActiveDoc(doc => {
       const updated = [...doc.textItems];
-      updated.splice(doc.cursorIndex, 0, { char, ...currentStyle });
+      updated.splice(doc.cursorIndex, 0, { char, ...currentStyle });  // Insert the new character at the cursor position
 
       return {
         ...doc,
@@ -86,20 +88,23 @@ function App() {
     });
   };
 
+  // Functions to move the cursor left and right within the text
   const moveCursorLeft = () => {
     updateActiveDoc(doc => ({
       ...doc,
-      cursorIndex: Math.max(0, doc.cursorIndex - 1)
+      cursorIndex: Math.max(0, doc.cursorIndex - 1)  // Ensure cursor doesn't go below 0
     }));
   };
 
+  // Function to move the cursor right
   const moveCursorRight = () => {
     updateActiveDoc(doc => ({
       ...doc,
-      cursorIndex: Math.min(doc.textItems.length, doc.cursorIndex + 1)
+      cursorIndex: Math.min(doc.textItems.length, doc.cursorIndex + 1)  // Ensure cursor doesn't go beyond the text length
     }));
   };
 
+  // Function to delete a single character before the cursor
   const deleteChar = () => {
     if (focusField === 'search') {
       setSearchChar('');
@@ -115,7 +120,7 @@ function App() {
       if (doc.cursorIndex === 0) return doc;
 
       const updated = [...doc.textItems];
-      updated.splice(doc.cursorIndex - 1, 1);
+      updated.splice(doc.cursorIndex - 1, 1);  // Remove the character before the cursor
 
       return {
         ...doc,
@@ -126,6 +131,7 @@ function App() {
     });
   };
 
+  // Function to delete an entire word before the cursor
   const deleteWord = () => {
     updateActiveDoc(doc => {
       if (doc.cursorIndex === 0) return doc;
@@ -133,12 +139,12 @@ function App() {
       const updated = [...doc.textItems];
       let end = doc.cursorIndex;
 
-      while (end > 0 && updated[end - 1]?.char === ' ') end--;
+      while (end > 0 && updated[end - 1]?.char === ' ') end--;  // Skip any trailing spaces before the word to delete
 
       let start = end;
-      while (start > 0 && updated[start - 1]?.char !== ' ') start--;
+      while (start > 0 && updated[start - 1]?.char !== ' ') start--;  // Find the start of the word to delete
 
-      updated.splice(start, doc.cursorIndex - start);
+      updated.splice(start, doc.cursorIndex - start); // Remove the word from the text and any spaces before it
 
       return {
         ...doc,
@@ -149,6 +155,7 @@ function App() {
     });
   };
 
+  // Function to clear all text from the document
   const clearAll = () => {
     updateActiveDoc(doc => ({
       ...doc,
@@ -158,6 +165,7 @@ function App() {
     }));
   };
 
+  // Function to undo the last change made to the document by reverting to the previous state saved in the history
   const undo = () => {
     updateActiveDoc(doc => {
       if (doc.history.length === 0) return doc;
@@ -168,11 +176,12 @@ function App() {
         ...doc,
         textItems: last.textItems,
         cursorIndex: last.cursorIndex,
-        history: doc.history.slice(0, -1)
+        history: doc.history.slice(0, -1)  // Remove the last history entry after undoing
       };
     });
   };
 
+  // Function to apply the current text styling to all characters in the document
   const applyStyleToAll = () => {
     updateActiveDoc(doc => ({
       ...doc,
@@ -186,24 +195,29 @@ function App() {
     }));
   };
 
+  // Function to apply the current text styling to all characters from the cursor position onward
   const applyStyleFromCursor = () => {
     updateActiveDoc(doc => ({
       ...doc,
       textItems: doc.textItems.map((item, index) =>
-        index >= doc.cursorIndex
-          ? { ...item, color: currentStyle.color, fontSize: currentStyle.fontSize, fontFamily: currentStyle.fontFamily }
-          : item
+        index >= doc.cursorIndex  // Only apply the style to characters at or after the cursor position
+          ? { 
+            ...item, 
+            color: currentStyle.color, 
+            fontSize: currentStyle.fontSize, 
+            fontFamily: currentStyle.fontFamily } : item
       ),
       history: [...doc.history, saveHistory(doc)]
     }));
   };
 
+  // Function to find the next occurrence of the search character in the document, starting from the cursor position
   const findChar = () => {
-    if (!searchChar || !activeDoc) return;
+    if (!searchChar) return;
 
     const chars = activeDoc.textItems.map(item => item.char);
-    const index = chars.indexOf(searchChar, activeDoc.cursorIndex + 1);
-    const finalIndex = index !== -1 ? index : chars.indexOf(searchChar);
+    const index = chars.indexOf(searchChar, activeDoc.cursorIndex + 1);  // Start searching from the position right after the current cursor index
+    const finalIndex = index !== -1 ? index : chars.indexOf(searchChar);  // If not found ahead, wrap around and search from the beginning of the text
 
     if (finalIndex === -1) {
       alert('התו לא נמצא');
@@ -212,17 +226,18 @@ function App() {
 
     updateActiveDoc(doc => ({
       ...doc,
-      cursorIndex: finalIndex
+      cursorIndex: finalIndex  // Move the cursor to the found character
     }));
 
     setFocusField('main');
   };
 
+  // Function to replace the next occurrence of the search character with the replace character, starting from the cursor position
   const replaceCharOnce = () => {
-    if (!searchChar || !replaceChar || !activeDoc) return;
+    if (!searchChar || !replaceChar) return;
 
     const chars = activeDoc.textItems.map(item => item.char);
-    const index = chars.indexOf(searchChar, activeDoc.cursorIndex);
+    const index = chars.indexOf(searchChar, activeDoc.cursorIndex);  
 
     if (index === -1) {
       alert('התו לא נמצא');
@@ -244,6 +259,7 @@ function App() {
     setFocusField('main');
   };
 
+  // Function to replace all occurrences of the search character with the replace character throughout the entire document
   const replaceAllChars = () => {
     if (!searchChar || !replaceChar) return;
 
@@ -260,17 +276,18 @@ function App() {
     setFocusField('main');
   };
 
+  // Function to create a new document and set it as the active document
   const createNewDocument = () => {
     const newDoc = createDoc();
-    setDocuments(prev => [...prev, newDoc]);
+    setDocuments(prev => [...prev, newDoc]); 
     setActiveDocId(newDoc.id);
     setSearchChar('');
     setReplaceChar('');
     setFocusField('main');
   };
 
+  // Function to save the current document to localStorage, with an option to prompt for a new name (Save As)
   const saveFile = (saveAs = false) => {
-    if (!activeDoc) return;
 
     let name = activeDoc.name;
 
@@ -292,17 +309,21 @@ function App() {
     alert(`הקובץ "${name}" נשמר בהצלחה`);
   };
 
+  // Function to open a saved file from localStorage and set it as the active document
   const openFile = (name) => {
-  const alreadyOpenDoc = documents.find(doc => doc.name === name);
+    const alreadyOpenDoc = documents.find(doc => doc.name === name);
 
-  if (alreadyOpenDoc) {
-    setActiveDocId(alreadyOpenDoc.id);
-    setFocusField('main');
-    return;
-  }
-
-  const data = localStorage.getItem(getFileKey(name));
-    if (!data) return;
+    if (alreadyOpenDoc) {
+      setActiveDocId(alreadyOpenDoc.id);
+      setFocusField('main');
+      return;
+    }
+ 
+    const data = localStorage.getItem(getFileKey(name));
+    if (!data) {
+      alert('הקובץ לא נמצא');
+      return;
+    }
 
     const parsed = JSON.parse(data);
     const newDoc = createDoc(name, parsed);
@@ -312,9 +333,9 @@ function App() {
     setFocusField('main');
   };
 
+  // Function to delete the currently active file after confirming with the user
   const deleteFile = () => {
-    if (!activeDoc?.name) return;
-
+    
     const confirmDelete = confirm(`האם את בטוחה שברצונך למחוק את הקובץ "${activeDoc.name}"?`);
     if (!confirmDelete) return;
 
@@ -337,6 +358,7 @@ function App() {
     setFocusField('main');
   };
 
+// Function to close a document, prompting the user to save if there are unsaved changes, and then removing it from the list of open documents
   const closeDocument = (docId) => {
     const docToClose = documents.find(doc => doc.id === docId);
     if (!docToClose) return;
@@ -366,7 +388,7 @@ function App() {
       setActiveDocId(remainingDocs[0].id);
     }
   };
-
+// Function to render the text of a document, including the cursor at the correct position and applying the appropriate styles to each character
   const renderDocumentText = (doc) => {
     const output = [];
 
@@ -390,6 +412,7 @@ function App() {
     return output;
   };
   
+// Function to log out the current user, prompting to save any unsaved documents, and then clearing the user state and returning to the login screen
   const logout = () => {
     const shouldSave = confirm('האם לשמור את כל השינויים לפני התנתקות?');
 
@@ -424,7 +447,7 @@ function App() {
     setReplaceChar('');
     setFocusField('main');
   };
-
+// If there is no active user, render the login screen
   if (!activeUser) {
     return (
       <div className="app-container">
@@ -463,6 +486,11 @@ function App() {
               localStorage.setItem('displayUser', name);
               setActiveUser(userId);
               setUsername(name);
+              setSavedFiles(
+                Object.keys(localStorage)
+                  .filter(key => key.startsWith(`file_${userId}_`))
+                  .map(key => key.replace(`file_${userId}_`, ''))
+              );
               setPassword('');
             }}
           >
@@ -472,7 +500,7 @@ function App() {
       </div>
     );
   }
-
+// If there is an active user, render the main text editor interface
   return (
     <div className="app-container">
       <h1>Visual Text Editor</h1>
